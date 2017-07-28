@@ -209,6 +209,6 @@ func (b *BitReader) DumpAll() ([]byte, error) {
 	return ioutil.ReadAll(b.r)
 }
 
-func (b *BitReader) GetReader() (*io.Reader, error) {
+func (b *BitReader) GetReader() io.Reader {
 	return b.r
 }
