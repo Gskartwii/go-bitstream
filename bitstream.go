@@ -4,6 +4,7 @@ package bitstream
 import (
 	"io"
 )
+import "io/ioutil"
 
 // A Bit is a zero or a one
 type Bit bool
@@ -48,6 +49,10 @@ func (b *BitReader) ReadBit() (Bit, error) {
 	d := (b.b[0] & 0x80)
 	b.b[0] <<= 1
 	return d != 0, nil
+}
+
+func (b *BitReader) Align() {
+	b.count = 0
 }
 
 // NewWriter returns a BitWriter that buffers bits and write the resulting bytes to 'w'
@@ -108,6 +113,9 @@ func (b *BitReader) ReadByte() (byte, error) {
 		n, err := b.r.Read(b.b[:])
 		if n == 0 {
 			b.b[0] = 0
+		}
+		if err == io.EOF {
+			return b.b[0], nil
 		}
 		return b.b[0], err
 	}
@@ -195,4 +203,12 @@ func (b *BitWriter) WriteBits(u uint64, nbits int) error {
 	}
 
 	return nil
+}
+
+func (b *BitReader) DumpAll() ([]byte, error) {
+	return ioutil.ReadAll(b.r)
+}
+
+func (b *BitReader) GetReader() (*io.Reader, error) {
+	return b.r
 }
