@@ -3,6 +3,7 @@ package bitstream
 
 import (
 	"io"
+    "errors"
 )
 import "io/ioutil"
 
@@ -54,6 +55,20 @@ func (b *BitReader) ReadBit() (Bit, error) {
 func (b *BitReader) Align() {
 	b.count = 0
 }
+func (b *BitWriter) Align() error {
+    if b.count == 8 {
+        b.b[0] = 0
+        return nil
+    }
+    n, err := b.w.Write(b.b[:])
+    if n != 1 || err != nil {
+        return err
+    }
+    b.count = 8
+    b.b[0] = 0
+
+    return nil
+}
 
 // NewWriter returns a BitWriter that buffers bits and write the resulting bytes to 'w'
 func NewWriter(w io.Writer) *BitWriter {
@@ -104,6 +119,51 @@ func (b *BitWriter) WriteByte(byt byte) error {
 	b.b[0] = byt << b.count
 
 	return nil
+}
+func (b *BitWriter) Write(data []byte) (int, error) {
+    if b.count == 8 { // Count can never be 0.
+        return b.w.Write(data)
+    }
+
+	for i := 0; i < len(data); i++ {
+		err := b.WriteByte(data[i])
+		if err != nil {
+			return i, err
+		}
+	}
+	return len(data), nil
+}
+
+// Implements io.Reader
+// Optimized for aligned reads
+func (b *BitReader) Read(dest []byte) error {
+    if b.count == 0 {
+        n, err := b.r.Read(dest)
+        if err != nil {
+            return err
+        }
+        if n < len(dest) {
+            return errors.New("Read() didn't read enough bytes")
+        }
+    } else if b.count == 8 && len(dest) > 1 {
+        dest[0] = b.b[0]
+        b.count = 0
+        n, err := b.r.Read(dest[1:])
+        if err != nil {
+            return err
+        }
+        if n < len(dest[1:]) {
+            return errors.New("Read() didn't read enough bytes")
+        }
+    }
+    for i := 0; i < len(dest); i++ {
+        res, err := b.ReadByte()
+        if err != nil {
+            return err
+        }
+        dest[i] = byte(res)
+    }
+    return nil
 }
 
 // ReadByte reads a single byte from the stream, regardless of alignment
